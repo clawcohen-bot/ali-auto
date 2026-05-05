@@ -22,8 +22,14 @@ services:
       context: ./agent
     restart: unless-stopped
     environment:
+      # Anthropic credentials passed through to OneCLI-spawned containers
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # OneCLI — NanoClaw's container management backend
+      ONECLI_URL: ${ONECLI_URL}
+      ONECLI_API_KEY: ${ONECLI_API_KEY}
+      # Shared secret for the /products/sync endpoint
       SYNC_SECRET: ${SYNC_SECRET}
+      # Internal URL of the NestJS API (resolved inside Docker Compose network)
       API_URL: http://api:3000
     depends_on:
       - api

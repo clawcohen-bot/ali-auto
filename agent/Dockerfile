@@ -1,34 +1,44 @@
 # NanoClaw Scraper Agent
-# Runs the AliExpress car accessories scraper every hour via cron.
+# Uses NanoClaw (https://github.com/qwibitai/nanoclaw) to run the
+# AliExpress car accessories scraper on a recurring hourly schedule.
 #
 # Required environment variables:
 #   ANTHROPIC_API_KEY   — Anthropic API key for Claude
 #   SYNC_SECRET         — Must match the backend's SYNC_SECRET
 #   API_URL             — Backend URL (default: http://api:3000)
+#   ONECLI_URL          — OneCLI service URL (for container management)
+#   ONECLI_API_KEY      — OneCLI API key
 
 FROM node:20-alpine
 
-# Install cron + bash
-RUN apk add --no-cache dcron bash curl
+# System dependencies
+# python3/make/g++ are required to compile better-sqlite3 (native module)
+RUN apk add --no-cache bash curl git python3 make g++
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install pnpm (matches NanoClaw's packageManager field)
+RUN npm install -g pnpm@10.33.0
+
+# Clone NanoClaw from GitHub
+RUN git clone --depth 1 https://github.com/qwibitai/nanoclaw /nanoclaw
+
+WORKDIR /nanoclaw
+
+# Install all dependencies (devDeps needed for tsx to run TypeScript scripts)
+RUN pnpm install
+
+# Compile TypeScript → dist/
+RUN pnpm build
+
+# Create required NanoClaw runtime directories
+RUN mkdir -p /nanoclaw/store /nanoclaw/groups /nanoclaw/data
 
 WORKDIR /agent
 
-# Copy the prompt
+# Agent-specific files
 COPY scraper-prompt.md ./
-
-# Entrypoint script: runs the agent once, then sets up hourly cron
+COPY agent-claude.md ./
+COPY seed-task.mjs ./
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
-
-# Wrapper that calls `claude -p` with the prompt
-COPY run-scraper.sh ./
-RUN chmod +x run-scraper.sh
-
-# Cron: run every hour at minute 0, log to stdout
-RUN echo "0 * * * * /agent/run-scraper.sh >> /proc/1/fd/1 2>> /proc/1/fd/2" \
-    | crontab -
 
 CMD ["/agent/entrypoint.sh"]
