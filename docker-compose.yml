@@ -16,3 +16,14 @@ services:
       - "5555:80"
     depends_on:
       - api
+
+  agent:
+    build:
+      context: ./agent
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SYNC_SECRET: ${SYNC_SECRET}
+      API_URL: http://api:3000
+    depends_on:
+      - api
